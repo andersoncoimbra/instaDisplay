@@ -1,0 +1,4 @@
+vendor
+.env
+src/database.sqlite
+composer.lock
