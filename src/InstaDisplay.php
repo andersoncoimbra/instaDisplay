@@ -89,6 +89,7 @@ class InstaDisplay
     public function getAccessToken()
     {
         try {
+            $this->pdo->exec('CREATE TABLE IF NOT EXISTS instagram (access_token TEXT)');
             $stmt = $this->pdo->query('SELECT access_token FROM instagram');            
             $row = $stmt->fetch();            
             return $row['access_token'];

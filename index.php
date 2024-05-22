@@ -11,5 +11,10 @@ $instagram = new InstaDisplay();
 
 //aplication json
 header('Content-Type: application/json');
-echo json_encode($instagram->getDB('media', "media"));
+$data = json_encode($instagram->getDB('media', "media"));
+if($data){
+    echo $data;
+}else{
+    echo $instagram->getUserMidiaApi('media', "media");
+}
 ?>
