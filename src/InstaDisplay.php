@@ -30,9 +30,8 @@ class InstaDisplay
         }
     }
 
-    public function getShorterLivedAccessToken()
-    {
-        $code = $_GET['code'];
+    public function getShorterLivedAccessToken($code)
+    {        
         $url = 'https://api.instagram.com/oauth/access_token';
         $data = [
             'client_id' => $this->appId,
@@ -41,14 +40,12 @@ class InstaDisplay
             'redirect_uri' => $this->redirectUri,
             'code' => $code
         ];
-        $response = $this->makeRequest($url, $data);
+        $response = $this->postRequest($url, $data);        
         if(isset($response['access_token'])){            
             return $response['access_token'];
         }else{
             return null;
         }
-
-            
     }
 
     public function getLongerLivedAccessToken($accessToken)
@@ -59,7 +56,10 @@ class InstaDisplay
             'grant_type' => 'ig_exchange_token',
             'access_token' => $accessToken
         ];
-        $response = $this->makeRequest($url, $data);
+        $response = $this->getRequest($url, $data);
+        echo json_encode($response);
+        echo "<br>";
+        echo json_encode($data);
         return $response['access_token'];
     }
 
@@ -67,9 +67,8 @@ class InstaDisplay
     {
         $this->pdo->exec('CREATE TABLE IF NOT EXISTS instagram (access_token TEXT)');
         $this->pdo->exec('DELETE FROM instagram');
-        $stmt = $db->prepare('INSERT INTO instagram (access_token) VALUES (:access_token)');
-        $stmt->bindValue(':access_token', $accessToken, SQLITE3_TEXT);
-        $stmt->execute();        
+        $stmt = $this->pdo->prepare('INSERT INTO instagram (access_token) VALUES (:access_token)');        
+        $stmt->execute(['access_token' => $accessToken]);
     }
 
     public function testAccessToken()
@@ -79,9 +78,10 @@ class InstaDisplay
             if(!$accessToken) return false;
             $url = 'https://graph.instagram.com/me?fields=id&access_token=' . $accessToken;
             $response = file_get_contents($url);
-            $response = json_decode($response, true);
+            $response = json_decode($response, true);            
             return isset($response['id']);
         } catch (\Exception $e) {
+            echo $e->getMessage();
             return false;
         }
     }
@@ -89,20 +89,20 @@ class InstaDisplay
     public function getAccessToken()
     {
         try {
-            $stmt = $this->pdo->prepare('SELECT access_token FROM instagram');
-            $result = $stmt->execute();
-            $row = $result->fetchArray();
+            $stmt = $this->pdo->query('SELECT access_token FROM instagram');            
+            $row = $stmt->fetch();            
             return $row['access_token'];
         } catch (\PDOException $e) {
             return null;
         }
     }
 
-    function getUserMidiaApi() {
+    public function getUserMidiaApi() {
         $accessToken = $this->getAccessToken();
         $url = 'https://graph.instagram.com/me/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp&access_token=' . $accessToken;
         $response = file_get_contents($url);
         $response = json_decode($response, true);
+        echo json_encode($response);
         $this->insertDB('media','media',json_encode($response['data']));
         return $this->getDB('media','media');
     }
@@ -119,7 +119,18 @@ class InstaDisplay
         return $url;
     }
 
-    public function makeRequest($url, $data)
+    public function getRequest($url, $data)
+    {
+        $url .= '?' . http_build_query($data);
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        $response = curl_exec($ch);
+        curl_close($ch);
+        return json_decode($response, true);
+    }
+
+    public function postRequest($url, $data)
     {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
